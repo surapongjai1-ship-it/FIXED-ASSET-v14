@@ -604,6 +604,7 @@
       }).catch(err => alert("ลบไม่สำเร็จ: " + err.message));
     }
 
+    // --- ปรับแต่งระบบสแกนความเร็วสูงพิเศษ (ลดความหน่วง/กระตุกบนมือถือและ iOS) ---
     function openScannerModal() {
       document.getElementById('scannerModal').classList.remove('hidden');
       document.getElementById('zoomRange').value = 1;
@@ -615,13 +616,17 @@
 
       const isContinuous = document.getElementById('continuousScanToggle').checked;
 
+      // เพิ่ม FPS เป็น 30 และกำหนดค่าความละเอียดภาพเพื่อให้กล้องจับรหัสได้ไวและคมชัดยิ่งขึ้น
       const qrConfig = { 
-        fps: 20, 
-        qrbox: { width: 230, height: 230 },
+        fps: 30, 
+        qrbox: { width: 250, height: 250 },
         aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        },
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 720 },
+          width: { ideal: 1280 },
           height: { ideal: 720 }
         }
       };
@@ -775,7 +780,6 @@
             let col4 = String(row[4] || '-').trim();
             let col5 = String(row[5] || 'AC').trim();
 
-            // เงื่อนไขข้ามแถวหัวตาราง (ถ้าเจอคำว่า ลำดับ, ประเภท, เลขทะเบียน หรือช่องรหัสว่าง ให้ข้ามทันที)
             if (col2 === '' || col0 === 'ลำดับ' || col1.includes('ประเภท') || col2.includes('เลขทะเบียน')) {
               continue;
             }
