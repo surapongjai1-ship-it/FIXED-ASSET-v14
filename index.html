@@ -746,7 +746,7 @@
       }
     }
 
-    // --- ฟังก์ชันนำเข้าไฟล์ Excel แบบอ่านทุกแถวแบบครบถ้วน 100% ---
+    // --- ฟังก์ชันนำเข้าไฟล์ Excel เริ่มอ่านจากแถวแรกสุด (Index 0) ครบทุกแถว 100% ---
     function importExcelFile(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -760,34 +760,30 @@
           const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
 
           let companyName = file.name.replace(/\.[^/.]+$/, "").trim();
-
           let importedCount = 0;
           const batch = db.batch();
 
-          // เริ่มอ่านตั้งแต่แถวที่ 2 เป็นต้นไป (index 1) เพื่อข้ามหัวตาราง โดยไม่อิงคำค้นหา
-          for (let i = 1; i < jsonData.length; i++) {
+          for (let i = 0; i < jsonData.length; i++) {
             const row = jsonData[i];
-            if (!row || row.length === 0) continue;
+            if (!row || row.length < 3) continue;
 
-            // ตรวจสอบคอลัมน์สำคัญ (สมมติ code อยู่คอลัมน์ที่ 2 หรือ 3 และ name อยู่คอลัมน์ที่ 3 หรือ 4)
-            let code = row[2] || row[1] || row[0] || '';
-            let name = row[3] || row[2] || row[1] || '';
-            let category = row[1] || row[0] || 'ทั่วไป';
-            let location = row[4] || '-';
-            let owner = row[5] || 'AC';
+            let code = row[2] !== undefined ? String(row[2]).trim() : '';
+            let name = row[3] !== undefined ? String(row[3]).trim() : '';
+            let category = row[1] !== undefined ? String(row[1]).trim() : 'ทั่วไป';
+            let location = row[4] !== undefined ? String(row[4]).trim() : '-';
+            let owner = row[5] !== undefined ? String(row[5]).trim() : 'AC';
 
-            // ถ้ามีรหัสทรัพย์สิน ให้บันทึกทันทีทุกแถว
-            if (code && typeof code === 'string' && code.trim() !== '') {
+            if (code !== '') {
               importedCount++;
               const docRef = db.collection("skyai_assets_v9_clean").doc(`asset_${companyName}_${importedCount}_${Date.now()}`);
               batch.set(docRef, {
                 id: importedCount, 
                 company: companyName, 
-                category: String(category),
-                code: String(code).trim(), 
-                name: String(name).trim(), 
-                location: String(location),
-                owner: String(owner), 
+                category: category,
+                code: code, 
+                name: name, 
+                location: location,
+                owner: owner, 
                 tag: 'มีป้าย', 
                 status: '', 
                 images: [], 
@@ -800,11 +796,11 @@
             batch.commit().then(() => {
               companyMetadata[companyName] = { inspector: "นายสุรพงษ์ ใจตุ้ย", date: "2026-11-04" };
               localStorage.setItem('skyai_meta', JSON.stringify(companyMetadata));
-              alert(`นำเข้าข้อมูลบริษัท "${companyName}" สำเร็จ ${importedCount} รายการครบทุกแถว!`);
+              alert(`นำเข้าข้อมูลบริษัท "${companyName}" สำเร็จทั้งหมด ${importedCount} รายการครบถ้วน!`);
               switchCompany(companyName);
             });
           } else {
-            alert("ไม่พบข้อมูลในไฟล์ กรุณาตรวจสอบว่ามีข้อมูลอยู่ในแถวถัดจากหัวตารางหรือไม่");
+            alert("ไม่พบข้อมูลรหัสทะเบียนทรัพย์สินในไฟล์ กรุณาตรวจสอบรูปแบบคอลัมน์");
           }
         } catch (err) { alert("เกิดข้อผิดพลาดในการอ่านไฟล์: " + err.message); }
       };
