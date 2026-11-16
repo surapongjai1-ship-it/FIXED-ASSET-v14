@@ -191,7 +191,7 @@
   <div id="scannerModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl max-w-sm w-full p-4 space-y-3 shadow-2xl relative">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-xs text-slate-800"><i class="fa-solid fa-qrcode mr-1 text-blue-600"></i> สแกนบาร์โค้ด / QR Code</h3>
+        <h3 class="font-bold text-xs text-slate-800"><i class="fa-solid fa-qrcode mr-1 text-blue-600"></i> สแกนบาร์โค้ด / QR Code (Turbo)</h3>
         <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
       </div>
       
@@ -604,9 +604,10 @@
       }).catch(err => alert("ลบไม่สำเร็จ: " + err.message));
     }
 
+    // --- TURBO SCANNER: ปรับจูนพิเศษสำหรับสแกน QR Code บนซี่กรงเหล็กโค้ง ---
     function openScannerModal() {
       document.getElementById('scannerModal').classList.remove('hidden');
-      document.getElementById('zoomRange').value = 1;
+      document.getElementById('zoomRange').value = 1.5; // เริ่มต้นที่ซูม 1.5x เพื่อให้จับภาพสติกเกอร์ได้พอดี
       document.getElementById('scanQuickPopup').classList.add('hidden');
       
       if (!html5QrCode) {
@@ -616,13 +617,17 @@
       const isContinuous = document.getElementById('continuousScanToggle').checked;
 
       const qrConfig = { 
-        fps: 20, 
-        qrbox: { width: 230, height: 230 },
+        fps: 60, 
+        qrbox: { width: 280, height: 280 },
         aspectRatio: 1.0,
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        },
         videoConstraints: {
           facingMode: "environment",
-          width: { ideal: 720 },
-          height: { ideal: 720 }
+          focusMode: "continuous",
+          width: { ideal: 1920 },
+          height: { ideal: 1080 }
         }
       };
 
@@ -656,6 +661,8 @@
           const videoElement = document.querySelector('#reader video');
           if (videoElement && videoElement.srcObject) {
             currentTrack = videoElement.srcObject.getVideoTracks()[0];
+            // ล็อกตั้งค่าซูมเริ่มต้นที่ 1.5x ทันทีที่เปิดกล้อง
+            currentTrack.applyConstraints({ advanced: [{ zoom: 1.5 }] }).catch(err => {});
           }
         } catch (e) {}
       }).catch(err => alert("ไม่สามารถเปิดกล้องได้: " + err));
@@ -775,7 +782,6 @@
             let col4 = String(row[4] || '-').trim();
             let col5 = String(row[5] || 'AC').trim();
 
-            // เงื่อนไขข้ามแถวหัวตาราง (ถ้าเจอคำว่า ลำดับ, ประเภท, เลขทะเบียน หรือช่องรหัสว่าง ให้ข้ามทันที)
             if (col2 === '' || col0 === 'ลำดับ' || col1.includes('ประเภท') || col2.includes('เลขทะเบียน')) {
               continue;
             }
