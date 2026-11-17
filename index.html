@@ -127,21 +127,47 @@
       </div>
     </div>
 
-    <!-- Search & Scanner Bar -->
+    <!-- Search, Location Filter & Scanner Bar -->
     <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 space-y-2.5 sticky top-14 z-20">
       <div class="flex gap-2 items-center">
+        <!-- ช่องค้นหารหัส/ชื่อหลัก -->
         <div class="relative flex-1">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-          <input type="text" id="searchInput" autofocus oninput="currentPage=1; renderList()" placeholder="คลิกช่องนี้แล้วยิงบาร์โค้ด / พิมพ์ค้นหาด่วน..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono">
+          <input type="text" id="searchInput" autofocus oninput="currentPage=1; renderList()" placeholder="ค้นหารหัสทะเบียน หรือชื่อทรัพย์สิน..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono">
           <button onclick="clearSearch()" id="btnClearSearch" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
         </div>
+
+        <!-- ปุ่มเปิดกล่องเลือก Location (กรองสถานที่แบบ Excel) -->
+        <div class="relative">
+          <button onclick="toggleLocationDropdown()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-medium px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all border border-slate-200 whitespace-nowrap">
+            <i class="fa-solid fa-filter text-blue-600"></i> <span id="locationFilterLabel">สถานที่ทั้งหมด</span> <i class="fa-solid fa-chevron-down text-[10px]"></i>
+          </button>
+
+          <!-- Dropdown สำหรับติ๊กเลือก Location -->
+          <div id="locationDropdown" class="hidden absolute right-0 mt-1 w-64 bg-white rounded-xl shadow-xl border border-slate-200 p-3 z-30 space-y-2">
+            <div class="flex justify-between items-center text-xs font-bold border-b pb-1.5 text-slate-700">
+              <span>📍 กรองตามสถานที่ตั้ง</span>
+              <button onclick="resetLocationFilter()" class="text-[10px] text-blue-600 hover:underline">รีเซ็ต</button>
+            </div>
+            <div id="locationCheckboxesContainer" class="max-h-48 overflow-y-auto space-y-1 text-xs pr-1">
+              <!-- รายการ Checkbox สถานที่ -->
+            </div>
+            <button onclick="toggleLocationDropdown()" class="w-full bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-medium py-1.5 rounded-lg">ตกลง</button>
+          </div>
+        </div>
+
+        <!-- ปุ่มเปิดสแกนเนอร์ -->
         <button onclick="openScannerModal()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-all shadow-sm whitespace-nowrap">
-          <i class="fa-solid fa-qrcode"></i> <span>สแกนรหัส</span>
+          <i class="fa-solid fa-qrcode"></i> <span>สแกน</span>
         </button>
       </div>
 
+      <!-- Active Filter Chips (แสดงสถานที่ที่กำลังถูกกรองอยู่) -->
+      <div id="activeFilterChips" class="flex gap-1.5 flex-wrap items-center text-xs"></div>
+
+      <!-- Status Tabs -->
       <div class="flex gap-1 overflow-x-auto pb-1 text-[11px]">
         <button onclick="filterStatus('all')" id="tab-all" class="filter-tab px-3 py-1 rounded-md font-medium bg-blue-600 text-white whitespace-nowrap shadow-sm">ทั้งหมด (0)</button>
         <button onclick="filterStatus('ยังไม่ตรวจ')" id="tab-ยังไม่ตรวจ" class="filter-tab px-3 py-1 rounded-md font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 whitespace-nowrap">ยังไม่ตรวจ</button>
@@ -187,7 +213,7 @@
     </div>
   </div>
 
-  <!-- Scanner Modal with Fast Continuous Scan Popup & Photo Capture -->
+  <!-- Scanner Modal -->
   <div id="scannerModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl max-w-sm w-full p-4 space-y-3 shadow-2xl relative">
       <div class="flex justify-between items-center border-b pb-2">
@@ -197,7 +223,6 @@
       
       <div id="reader" class="w-full rounded-lg overflow-hidden bg-slate-900 min-h-[220px]"></div>
 
-      <!-- Popup เด้งขึ้นมาให้เลือกสถานะและถ่ายรูปเมื่อสแกนเจอ -->
       <div id="scanQuickPopup" class="hidden absolute inset-x-3 top-16 bg-slate-900/95 text-white p-3.5 rounded-xl shadow-2xl space-y-2.5 z-40 border border-slate-700">
         <div class="text-xs font-bold text-amber-400 flex items-center gap-1">
           <i class="fa-solid fa-circle-check"></i> สแกนเจอ: <span id="popupAssetCode" class="font-mono text-white"></span>
@@ -287,6 +312,7 @@
     let imageTrash = [];
     let currentCompany = 'SKYAI';
     let currentFilter = 'all';
+    let selectedLocations = []; // เก็บรายการสถานที่ที่เลือกกรอง
     let currentPage = 1;
     const itemsPerPage = 25;
     let myChart = null;
@@ -329,6 +355,7 @@
 
           updateCompanyTabs();
           syncMetaUI();
+          renderLocationCheckboxes();
           renderList();
           updateTabCounts();
           updateDashboard();
@@ -370,6 +397,60 @@
       document.getElementById('metaCompLabel2').innerText = currentCompany;
     }
 
+    // --- ระบบจัดการกล่องกรอง Location แบบ Excel ---
+    function toggleLocationDropdown() {
+      const drop = document.getElementById('locationDropdown');
+      drop.classList.toggle('hidden');
+    }
+
+    function renderLocationCheckboxes() {
+      const companyAssets = assets.filter(a => a.company === currentCompany);
+      const locations = [...new Set(companyAssets.map(a => a.location || '-'))].sort();
+      const container = document.getElementById('locationCheckboxesContainer');
+
+      container.innerHTML = locations.map(loc => {
+        const count = companyAssets.filter(a => (a.location || '-') === loc).length;
+        const isChecked = selectedLocations.length === 0 || selectedLocations.includes(loc);
+        return `
+          <label class="flex items-center justify-between hover:bg-slate-50 p-1 rounded cursor-pointer">
+            <div class="flex items-center gap-2 truncate">
+              <input type="checkbox" value="${loc}" ${isChecked ? 'checked' : ''} onchange="onLocationCheckboxChange()" class="location-chk rounded text-blue-600 focus:ring-0">
+              <span class="truncate text-slate-700" title="${loc}">${loc}</span>
+            </div>
+            <span class="text-[10px] text-slate-400 font-mono">(${count})</span>
+          </label>
+        `;
+      }).join('');
+    }
+
+    function onLocationCheckboxChange() {
+      const checkboxes = document.querySelectorAll('.location-chk');
+      const allLocs = [...new Set(assets.filter(a => a.company === currentCompany).map(a => a.location || '-'))];
+      
+      selectedLocations = [];
+      checkboxes.forEach(chk => {
+        if (chk.checked) selectedLocations.push(chk.value);
+      });
+
+      if (selectedLocations.length === allLocs.length || selectedLocations.length === 0) {
+        selectedLocations = [];
+        document.getElementById('locationFilterLabel').innerText = 'สถานที่ทั้งหมด';
+      } else {
+        document.getElementById('locationFilterLabel').innerText = `เลือกแล้ว (${selectedLocations.length})`;
+      }
+
+      currentPage = 1;
+      renderList();
+    }
+
+    function resetLocationFilter() {
+      selectedLocations = [];
+      document.querySelectorAll('.location-chk').forEach(chk => chk.checked = true);
+      document.getElementById('locationFilterLabel').innerText = 'สถานที่ทั้งหมด';
+      currentPage = 1;
+      renderList();
+    }
+
     async function renameCurrentCompany() {
       const newName = prompt(`เปลี่ยนชื่อบริษัทสำหรับ Tab "${currentCompany}" เป็น:`, currentCompany);
       if (!newName || !newName.trim() || newName.trim() === currentCompany) return;
@@ -405,6 +486,7 @@
         currentCompany = sanitizedNewName;
         updateCompanyTabs();
         syncMetaUI();
+        renderLocationCheckboxes();
         renderList();
         updateTabCounts();
         updateDashboard();
@@ -598,6 +680,7 @@
         currentCompany = remaining.length > 0 ? remaining[0] : 'SKYAI';
         updateCompanyTabs();
         syncMetaUI();
+        renderLocationCheckboxes();
         renderList();
         updateTabCounts();
         updateDashboard();
@@ -848,8 +931,10 @@
     function switchCompany(company) {
       currentCompany = company;
       currentPage = 1;
+      selectedLocations = [];
       updateCompanyTabs();
       syncMetaUI();
+      renderLocationCheckboxes();
       renderList();
       updateTabCounts();
       updateDashboard();
@@ -1013,13 +1098,30 @@
                            (item.name || '').toLowerCase().includes(query) ||
                            (item.category || '').toLowerCase().includes(query) ||
                            (item.location || '').toLowerCase().includes(query);
+        
+        const itemLoc = item.location || '-';
+        const matchLocation = selectedLocations.length === 0 || selectedLocations.includes(itemLoc);
+
         let matchStatus = true;
         if (currentFilter === 'ยังไม่ตรวจ') matchStatus = !item.status;
         else if (currentFilter === 'ดี') matchStatus = item.status === 'ดี';
         else if (currentFilter === 'ชำรุด') matchStatus = item.status === 'ชำรุด';
         else if (currentFilter === 'สูญหาย') matchStatus = item.status === 'สูญหาย';
-        return matchQuery && matchStatus;
+
+        return matchQuery && matchLocation && matchStatus;
       });
+
+      // แสดง Chips สถานที่ที่กำลังกรอง
+      const chipsContainer = document.getElementById('activeFilterChips');
+      if (selectedLocations.length > 0) {
+        chipsContainer.innerHTML = `<span class="text-[11px] text-slate-500 font-medium">สถานที่:</span>` + selectedLocations.map(loc => `
+          <span class="bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded-md flex items-center gap-1 text-[11px]">
+            ${loc} <i class="fa-solid fa-xmark cursor-pointer hover:text-blue-900" onclick="removeLocationChip('${loc}')"></i>
+          </span>
+        `).join('') + `<button onclick="resetLocationFilter()" class="text-[11px] text-red-600 hover:underline ml-1">ล้างตัวกรอง</button>`;
+      } else {
+        chipsContainer.innerHTML = '';
+      }
 
       if (filtered.length === 0) {
         container.innerHTML = `<div class="bg-white rounded-xl p-6 text-center text-slate-400 text-xs font-medium">ไม่พบรายการสินทรัพย์</div>`;
@@ -1097,6 +1199,21 @@
       } else {
         paginationContainer.innerHTML = '';
       }
+    }
+
+    function removeLocationChip(loc) {
+      selectedLocations = selectedLocations.filter(l => l !== loc);
+      const checkboxes = document.querySelectorAll('.location-chk');
+      checkboxes.forEach(chk => {
+        if (chk.value === loc) chk.checked = false;
+      });
+      if (selectedLocations.length === 0) {
+        document.getElementById('locationFilterLabel').innerText = 'สถานที่ทั้งหมด';
+      } else {
+        document.getElementById('locationFilterLabel').innerText = `เลือกแล้ว (${selectedLocations.length})`;
+      }
+      currentPage = 1;
+      renderList();
     }
 
     function changePage(page) {
