@@ -132,7 +132,7 @@
       <div class="flex gap-2 items-center">
         <div class="relative flex-1">
           <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
-          <input type="text" id="searchInput" oninput="currentPage=1; renderList()" placeholder="ค้นหารหัส หรือชื่อทรัพย์สิน..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono">
+          <input type="text" id="searchInput" autofocus oninput="currentPage=1; renderList()" placeholder="คลิกช่องนี้แล้วยิงบาร์โค้ด / พิมพ์ค้นหาด่วน..." class="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-8 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 font-mono">
           <button onclick="clearSearch()" id="btnClearSearch" class="hidden absolute right-3 top-2.5 text-slate-400 hover:text-slate-600">
             <i class="fa-solid fa-xmark text-xs"></i>
           </button>
@@ -191,7 +191,7 @@
   <div id="scannerModal" class="fixed inset-0 bg-black/70 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-xl max-w-sm w-full p-4 space-y-3 shadow-2xl relative">
       <div class="flex justify-between items-center border-b pb-2">
-        <h3 class="font-bold text-xs text-slate-800"><i class="fa-solid fa-qrcode mr-1 text-blue-600"></i> สแกนบาร์โค้ด / QR Code (Turbo)</h3>
+        <h3 class="font-bold text-xs text-slate-800"><i class="fa-solid fa-qrcode mr-1 text-blue-600"></i> สแกน QR Code (Hyper Speed)</h3>
         <button onclick="closeScannerModal()" class="text-slate-400 hover:text-slate-600"><i class="fa-solid fa-xmark"></i></button>
       </div>
       
@@ -242,7 +242,7 @@
       <div class="flex items-center gap-2 px-1">
         <span class="text-[11px] text-slate-500 font-medium">ซูม:</span>
         <button onclick="adjustZoom(-0.5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded font-bold">-</button>
-        <input type="range" id="zoomRange" min="1" max="5" step="0.5" value="1" oninput="onZoomChange(this.value)" class="flex-1 accent-blue-600">
+        <input type="range" id="zoomRange" min="1" max="5" step="0.5" value="2.0" oninput="onZoomChange(this.value)" class="flex-1 accent-blue-600">
         <button onclick="adjustZoom(0.5)" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs px-2.5 py-1 rounded font-bold">+</button>
       </div>
 
@@ -604,10 +604,10 @@
       }).catch(err => alert("ลบไม่สำเร็จ: " + err.message));
     }
 
-    // --- TURBO SCANNER: ปรับจูนพิเศษสำหรับสแกน QR Code บนซี่กรงเหล็กโค้ง ---
+    // --- HYPER SPEED SCANNER ---
     function openScannerModal() {
       document.getElementById('scannerModal').classList.remove('hidden');
-      document.getElementById('zoomRange').value = 1.5; // เริ่มต้นที่ซูม 1.5x เพื่อให้จับภาพสติกเกอร์ได้พอดี
+      document.getElementById('zoomRange').value = 2.0; 
       document.getElementById('scanQuickPopup').classList.add('hidden');
       
       if (!html5QrCode) {
@@ -618,7 +618,7 @@
 
       const qrConfig = { 
         fps: 60, 
-        qrbox: { width: 280, height: 280 },
+        qrbox: { width: 320, height: 320 },
         aspectRatio: 1.0,
         experimentalFeatures: {
           useBarCodeDetectorIfSupported: true
@@ -635,13 +635,25 @@
         { facingMode: "environment" },
         qrConfig,
         (decodedText) => {
-          const found = assets.find(a => (a.code || '').toLowerCase().includes(decodedText.toLowerCase()) || (a.name || '').toLowerCase().includes(decodedText.toLowerCase()));
+          const cleanText = decodedText.trim().toLowerCase();
+          const found = assets.find(a => (a.code || '').toLowerCase().includes(cleanText) || cleanText.includes((a.code || '').toLowerCase()));
           
           if (found) {
             if (found.company !== currentCompany) {
               switchCompany(found.company);
             }
             
+            // เล่นเสียง Beep สั้นๆ เมื่อสแกนเจอ
+            try {
+              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.type = "sine"; osc.frequency.value = 800;
+              gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+              osc.connect(gain); gain.connect(audioCtx.destination);
+              osc.start(); osc.stop(audioCtx.currentTime + 0.1);
+            } catch(e){}
+
             if (isContinuous) {
               html5QrCode.pause();
               scannedTargetDocId = found.docId;
@@ -661,8 +673,7 @@
           const videoElement = document.querySelector('#reader video');
           if (videoElement && videoElement.srcObject) {
             currentTrack = videoElement.srcObject.getVideoTracks()[0];
-            // ล็อกตั้งค่าซูมเริ่มต้นที่ 1.5x ทันทีที่เปิดกล้อง
-            currentTrack.applyConstraints({ advanced: [{ zoom: 1.5 }] }).catch(err => {});
+            currentTrack.applyConstraints({ advanced: [{ zoom: 2.0 }] }).catch(err => {});
           }
         } catch (e) {}
       }).catch(err => alert("ไม่สามารถเปิดกล้องได้: " + err));
@@ -753,7 +764,6 @@
       }
     }
 
-    // --- ฟังก์ชันนำเข้าไฟล์ Excel ข้ามแถวหัวตารางอัตโนมัติ ดึงครบ 22 รายการเป๊ะๆ ---
     function importExcelFile(event) {
       const file = event.target.files[0];
       if (!file) return;
