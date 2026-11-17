@@ -643,7 +643,6 @@
               switchCompany(found.company);
             }
             
-            // เล่นเสียง Beep สั้นๆ เมื่อสแกนเจอ
             try {
               const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
               const osc = audioCtx.createOscillator();
@@ -789,7 +788,7 @@
             let col1 = String(row[1] || '').trim();
             let col2 = String(row[2] || '').trim();
             let col3 = String(row[3] || '').trim();
-            let col4 = String(row[4] || '-').trim();
+            let col4 = String(row[4] || '-').trim(); // ดึงสถานที่ตั้งจากคอลัมน์ที่ 5
             let col5 = String(row[5] || 'AC').trim();
 
             if (col2 === '' || col0 === 'ลำดับ' || col1.includes('ประเภท') || col2.includes('เลขทะเบียน')) {
@@ -804,7 +803,7 @@
               category: col1,
               code: col2,
               name: col3,
-              location: col4,
+              location: col4, // บันทึก Location ลง Firebase
               owner: col5,
               tag: 'มีป้าย',
               status: '',
@@ -1012,7 +1011,8 @@
       const filtered = companyAssets.filter(item => {
         const matchQuery = (item.code || '').toLowerCase().includes(query) || 
                            (item.name || '').toLowerCase().includes(query) ||
-                           (item.category || '').toLowerCase().includes(query);
+                           (item.category || '').toLowerCase().includes(query) ||
+                           (item.location || '').toLowerCase().includes(query);
         let matchStatus = true;
         if (currentFilter === 'ยังไม่ตรวจ') matchStatus = !item.status;
         else if (currentFilter === 'ดี') matchStatus = item.status === 'ดี';
@@ -1048,8 +1048,12 @@
         <div class="bg-white rounded-xl p-3 shadow-sm border border-slate-200 space-y-2.5 transition-all ${borderStyle}">
           <div class="flex justify-between items-start gap-2">
             <div>
-              <span class="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded">${item.category}</span>
-              <h3 class="font-bold text-slate-800 text-xs mt-1 leading-snug">${item.name}</h3>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="bg-slate-100 text-slate-700 text-[10px] font-bold px-2 py-0.5 rounded">${item.category}</span>
+                <!-- แสดงสถานที่ตั้ง (Location) บนการ์ด -->
+                <span class="text-slate-500 text-[11px]"><i class="fa-solid fa-location-dot text-rose-500 mr-1"></i>${item.location || '-'}</span>
+              </div>
+              <h3 class="font-bold text-slate-800 text-xs mt-1.5 leading-snug">${item.name}</h3>
               <p class="text-[11px] font-mono font-bold text-blue-600 mt-0.5"><i class="fa-solid fa-barcode mr-1"></i>${item.code}</p>
             </div>
             ${item.status ? `<span class="text-[10px] font-bold px-2 py-0.5 rounded ${badgeStyle}">${item.status}</span>` : ''}
@@ -1112,7 +1116,7 @@
       const excelData = companyAssets.map((a, i) => ({
         "ลำดับที่": i + 1, "บริษัท/องค์กร": a.company, "ผู้ตรวจนับ": meta.inspector, "วันที่ตรวจนับ": meta.date,
         "ประเภทสินทรัพย์": a.category, "เลขทะเบียนทรัพย์สิน": a.code, "ชื่อทรัพย์สิน": a.name,
-        "สถานที่ตั้งเดิม": a.location, "ผู้รับผิดชอบ": a.owner, "สถานะป้าย": a.tag,
+        "สถานที่ตั้ง": a.location || '-', "ผู้รับผิดชอบ": a.owner, "สถานะป้าย": a.tag,
         "สภาพดี/ปกติ": a.status === 'ดี' ? '✓' : '', "สภาพชำรุด": a.status === 'ชำรุด' ? '✓' : '',
         "สภาพสูญหาย": a.status === 'สูญหาย' ? '✓' : '', "จำนวนรูปถ่าย": (a.images || []).length > 0 ? `${a.images.length} รูป` : 'ไม่มีรูปถ่าย', "หมายเหตุ": a.remark || ''
       }));
